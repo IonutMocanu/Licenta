@@ -8,6 +8,106 @@ Contribuțiile proprii din acest capitol sunt legate de alegerea și justificare
 
 În redactarea capitolului sunt utilizate atât sursele deja introduse în partea de introducere, cât și surse suplimentare necesare pentru detaliile tehnice ale Capitolului 1. Pentru a păstra continuitatea bibliografiei, sursele noi introduse în acest capitol pornesc de la numărul [29]. Sursele deja folosite anterior își păstrează numerotarea, astfel încât să nu fie dublate în bibliografie.
 
+## 1.1 Platforma mobilă autonomă Xplorer-A - prezentarea platformei de lucru existente
+
+Platforma mobilă autonomă Xplorer-A reprezintă baza de lucru pe care se dezvoltă integrarea propusă în această lucrare. Este important de precizat încă de la început că platforma mobilă nu este proiectată de la zero în cadrul prezentului proiect. Aceasta este un sistem existent, dezvoltat anterior în cadrul FIIR-UNSTPB, iar în lucrarea de față este utilizată ca suport pentru integrarea brațului robotic OMX-F, pentru scenariul de pick and place și pentru interfața ROS2-Unity/AR. Prin urmare, rolul acestui subcapitol este de a documenta platforma disponibilă, arhitectura ei hardware și software și motivele pentru care ea este potrivită ca bază de integrare.
+
+Descrierea platformei se bazează pe articolul „Lightweight Semantic-Aware Route Planning on Edge Hardware for Indoor Mobile Robots: Monocular Camera-2D LiDAR Fusion with Penalty-Weighted Nav2 Route Server Replanning”, în care sunt prezentate platformele Xplorer utilizate pentru cercetare în navigație autonomă indoor, inclusiv Xplorer-A [25]. Articolul are relevanță directă pentru această lucrare deoarece descrie aceeași familie de roboți mobili, aceeași orientare către ROS2 Jazzy și Nav2 și aceeași idee de rulare pe hardware edge cu resurse limitate. În acest proiect, accentul nu este pus pe rutarea semantică în sine, ci pe extinderea platformei mobile prin manipulare robotică și interfață de realitate augmentată.
+
+Xplorer-A este o platformă mobilă diferențială cu patru roți, proiectată pentru navigație autonomă în medii interioare. Conform articolului, platformele Xplorer au fost dezvoltate pentru cercetare și educație, fiind construite în jurul unei arhitecturi ROS2 complete, cu senzori de localizare, percepție și control al deplasării [25]. Acest lucru este important pentru lucrarea de față, deoarece integrarea brațului nu pornește de la un robot mobil simplu, comandat manual, ci de la o platformă care are deja un stack de navigare autonomă.
+
+Din punct de vedere mecanic, platforma este de tip 4WD diferențial. Această configurație presupune controlul diferențial al roților din stânga și din dreapta, astfel încât robotul se poate deplasa înainte, înapoi și se poate roti prin diferență de viteză între cele două părți. Pentru un sistem de laborator, această soluție este robustă și relativ ușor de controlat. În același timp, integrarea unui braț robotic pe o astfel de platformă trebuie făcută cu atenție, deoarece masa suplimentară și poziția brațului pot influența stabilitatea, distribuția greutății și comportamentul în timpul deplasării.
+
+Din punct de vedere al unității de calcul, articolul descrie utilizarea unui Raspberry Pi 5 cu 16 GB RAM, rulând Ubuntu 24.04 și ROS2 Jazzy [25]. Alegerea unui astfel de hardware este relevantă deoarece arată că platforma este gândită pentru execuție pe edge hardware, adică pe un calculator compact, cu consum redus și fără resurse de calcul comparabile cu o stație desktop. În articol, această constrângere este tratată în contextul rulării detecției YOLO și a rutării semantice. În lucrarea de față, aceeași constrângere trebuie luată în calcul pentru integrarea brațului, a nodurilor ROS2 suplimentare și a bridge-ului către Unity.
+
+Tabelul 1.1.1 prezintă principalele elemente hardware ale platformei Xplorer-A, așa cum sunt relevante pentru proiectul de față.
+
+**Tabelul 1.1.1 - Componente hardware relevante ale platformei Xplorer-A**
+
+| Componentă | Rol în platformă | Relevanță pentru proiectul curent |
+|---|---|---|
+| Șasiu 4WD diferențial | Bază mecanică pentru deplasare indoor | Suport pentru integrarea brațului OMX-F |
+| Raspberry Pi 5 | Unitate de calcul edge | Rulează ROS2, Nav2 și nodurile de integrare |
+| LiDAR STL-19P/LD19 | Scanare 2D 360° pentru navigare | Localizare, costmap și evitare obstacole |
+| Cameră monoculară Logitech C920 | Percepție vizuală | Utilă pentru extensii de percepție și documentare |
+| IMU BNO055 | Măsurare orientare/accelerații | Intrare pentru fuziune senzorială și estimare stare |
+| Encodere roți | Feedback de mișcare | Odometrie pentru navigare |
+| Controlere RoboClaw | Control motoare DC | Execuția comenzilor de deplasare |
+| Baterie 12 V Li-ion | Alimentare platformă | Trebuie analizată împreună cu alimentarea brațului |
+
+Senzorul LiDAR este unul dintre elementele principale pentru navigația autonomă. În articol, platforma folosește un LiDAR 2D STL-19P/LD19 cu câmp vizual de 360°, aproximativ 503 raze și frecvență de 10 Hz [25]. Acest senzor permite robotului să observe obstacolele din jur și să construiască informația necesară pentru localizare și evitare de obstacole. În contextul proiectului de față, LiDAR-ul rămâne important deoarece montarea brațului și a coșului nu trebuie să blocheze câmpul de scanare sau să introducă obstacole permanente neprevăzute în jurul robotului.
+
+Camera monoculară este descrisă în articol ca parte a sistemului de percepție folosit pentru detecția obiectelor în rutarea semantică [25]. În lucrarea de față, camera nu este elementul central al task-ului de manipulare, deoarece poziția obiectului poate fi definită inițial prin parametri cunoscuți. Totuși, prezența camerei este importantă pentru dezvoltări ulterioare, cum ar fi detectarea obiectului de manipulat sau transmiterea imaginii către interfața Unity. Astfel, platforma oferă deja o bază senzorială care poate fi extinsă.
+
+IMU-ul BNO055 și encoderele roților contribuie la estimarea mișcării platformei. Într-un sistem mobil, odometria pură poate acumula erori, iar fuziunea cu date inerțiale ajută la obținerea unei estimări mai stabile. Articolul menționează utilizarea unui Extended Kalman Filter pentru fuziunea odometriei și a IMU-ului, cu o rată de estimare de 20 Hz [25]. Această informație este importantă deoarece task-ul de manipulare depinde de poziționarea platformei. Dacă platforma nu se oprește într-o poziție repetabilă, brațul poate ajunge mai greu la obiect.
+
+Din punct de vedere software, platforma Xplorer-A este construită în jurul ROS2 Jazzy și Nav2 [11], [12], [25]. ROS2 are rolul de middleware, adică permite comunicarea între nodurile care controlează senzorii, actuatoarele, localizarea, navigarea și interfețele externe. Nav2 asigură funcțiile de navigare autonomă, cum ar fi localizarea pe hartă, planificarea traseului, controlul local și evitarea obstacolelor [12]. În articol, stack-ul include AMCL, EKF, MPPI controller și SmacPlannerHybrid, ceea ce arată că platforma este configurată pentru navigație autonomă reală, nu doar pentru deplasare manuală [25].
+
+Tabelul 1.1.2 prezintă componentele software principale ale platformei, cu rolul lor în sistem.
+
+**Tabelul 1.1.2 - Stack software existent pe platforma Xplorer-A**
+
+| Componentă software | Rol | Observații pentru integrare |
+|---|---|---|
+| ROS2 Jazzy | Middleware robotic | Baza de comunicație pentru toate modulele |
+| Nav2 | Navigare autonomă | Folosit pentru deplasarea către punctul de interes |
+| AMCL | Localizare pe hartă | Estimează poziția robotului în mediul indoor |
+| EKF | Fuziune odometrie și IMU | Crește stabilitatea estimării de stare |
+| MPPI controller | Control local al mișcării | Asigură urmărirea traiectoriei planificate |
+| SmacPlannerHybrid | Planificare globală în baseline | Generează trasee pentru navigare |
+| ros2_control | Interfață control hardware | Gestionează controlul motoarelor și poate coexista cu brațul |
+| TF2 | Transformări între frame-uri | Esențial pentru platformă, braț și Unity |
+
+Pentru proiectul curent, cea mai importantă funcție a platformei este capacitatea de a naviga autonom către un punct de interes. Scenariul propus în lucrare presupune următoarea succesiune: platforma se deplasează cu Nav2 către o zonă în care obiectul este accesibil, se oprește, brațul execută task-ul de pick and place, iar apoi platforma poate continua navigarea. Această succesiune este posibilă tocmai pentru că Xplorer-A are deja o arhitectură Nav2 funcțională.
+
+Articolul introduce și o extensie semantică a navigării, bazată pe fuziunea dintre cameră și LiDAR prin metoda Angular Sector Fusion, prescurtat ASF [25]. ASF proiectează detecțiile vizuale din imagine pe sectoare unghiulare ale scanării LiDAR și estimează poziția obiectelor în cadrul hărții. Informațiile semantice sunt apoi stocate într-o hartă GeoJSON și folosite pentru a penaliza anumite muchii dintr-un graf de navigare, astfel încât Nav2 Route Server să poată alege trasee mai potrivite din punct de vedere semantic [25]. În lucrarea de față, această componentă nu este implementată ca obiectiv principal, dar demonstrează că platforma Xplorer-A este deja compatibilă cu dezvoltări complexe în ROS2.
+
+Această observație este relevantă deoarece integrarea brațului OMX-F se face pe o platformă care a fost validată în scenarii de navigare avansată. Articolul raportează testarea pe 115 segmente de navigare, cu o rată totală de succes de 97% și 42 de evenimente de replanning în scenariile adaptive [25]. Chiar dacă aceste rezultate aparțin sistemului de rutare semantică, ele confirmă faptul că platforma are un stack de navigare matur și capabil să funcționeze pe hardware edge. Pentru lucrarea de față, acest lucru reduce riscul ca problemele de navigare de bază să blocheze integrarea brațului.
+
+Tabelul 1.1.3 sintetizează câteva rezultate și observații din articol, interpretate prin prisma proiectului curent.
+
+**Tabelul 1.1.3 - Elemente din articol relevante pentru proiectul de integrare**
+
+| Element din articol | Valoare / descriere | Relevanță pentru lucrarea curentă |
+|---|---|---|
+| Platforme testate | Xplorer-A, Xplorer-B, Xplorer-C | Confirmă existența unei familii de platforme mobile validate |
+| Hardware edge | Raspberry Pi 5, CPU-only | Arată constrângerile reale de calcul |
+| Senzori principali | Cameră monoculară + LiDAR 2D + IMU | Bază pentru navigare și posibile extensii de percepție |
+| Stack software | ROS2 Jazzy + Nav2 | Compatibil cu integrarea propusă |
+| Fuziune semantică | Angular Sector Fusion | Direcție viitoare pentru localizarea obiectelor |
+| Rutare semantică | Nav2 Route Server cu penalizări | Demonstrează extensibilitatea platformei |
+| Evaluare experimentală | 115 segmente de navigare | Platformă testată în condiții reale |
+| Rată succes | 97% total | Indică robustețe a navigării |
+
+Pentru integrarea brațului robotic, un aspect esențial este separarea clară între stack-ul existent și componentele adăugate. Stack-ul de navigare al platformei trebuie păstrat cât mai stabil, iar componentele noi trebuie adăugate la nivel de noduri ROS2 și interfețe. Această abordare este în acord cu logica articolului, unde stratul semantic este adăugat peste Nav2 fără a înlocui complet stack-ul de navigare [25]. În lucrarea de față, brațul și interfața Unity trebuie integrate în același mod: ca extensii controlate, nu ca modificări agresive ale platformei.
+
+Tabelul 1.1.4 prezintă interfețele ROS2 ale platformei care sunt importante pentru proiectul curent. Denumirile pot fi ajustate în funcție de configurația exactă a robotului, dar rolurile sunt cele esențiale.
+
+**Tabelul 1.1.4 - Interfețe ROS2 relevante ale platformei Xplorer-A**
+
+| Interfață | Tip | Rol în platformă | Utilizare în proiect |
+|---|---|---|---|
+| `/odom` | Topic | Publică odometria platformei | Vizualizare în Unity și monitorizare deplasare |
+| `/tf`, `/tf_static` | Topicuri TF2 | Transformări între frame-uri | Corelare platformă-braț-Unity |
+| `/scan` | Topic | Date LiDAR 2D | Navigare și evitare obstacole |
+| `/cmd_vel` | Topic | Comenzi de viteză | Control platformă, inclusiv din Unity în test |
+| `/map` | Topic | Hartă de navigare | Context pentru Nav2 |
+| `/amcl_pose` | Topic | Poziția estimată pe hartă | Confirmarea localizării la POI |
+| `NavigateToPose` | Acțiune Nav2 | Trimitere obiectiv navigare | Scenariul integrat Nav2 -> MTC |
+| `/joint_states` platformă/braț | Topic | Stări articulare acolo unde există | Sincronizare cu modelul 3D |
+
+În integrarea cu brațul OMX-F, frame-urile TF2 sunt foarte importante. Platforma are propriile frame-uri, precum `map`, `odom`, `base_link` și frame-urile senzorilor. Brațul adaugă frame-uri noi pentru baza brațului, articulații și end-effector. Pentru ca sistemul să funcționeze corect, trebuie definită transformarea statică dintre `base_link` al platformei și baza brațului. Dacă această transformare este greșită, MoveIt2 va planifica mișcări într-o poziție care nu corespunde montajului real, iar Unity va afișa un model nealiniat.
+
+Un alt aspect important este influența brațului asupra navigării. Montarea brațului și a coșului poate modifica geometria robotului. Dacă robotul devine mai înalt, mai lung sau mai lat, configurația de navigare trebuie verificată pentru a se asigura că footprint-ul sau zonele de siguranță rămân corecte. În mod ideal, brațul trebuie să fie adus într-o poziție compactă înainte ca platforma să se deplaseze. Această poziție reduce riscul de coliziune și menține comportamentul robotului cât mai apropiat de cel al platformei inițiale.
+
+Din punct de vedere al resurselor de calcul, articolul arată că rularea percepției semantice pe Raspberry Pi 5 poate duce la utilizare CPU ridicată, iar separarea inferenței pe o a doua placă poate reduce încărcarea medie de la 85% la 48% [25]. Pentru lucrarea de față, această observație este utilă deoarece bridge-ul ROS2-Unity, MoveIt2 și task-ul MTC adaugă și ele sarcini software. Chiar dacă planificarea MTC nu rulează continuu ca detecția vizuală, este necesară monitorizarea încărcării sistemului în timpul testelor, mai ales dacă Unity primește multe topicuri simultan.
+
+În ceea ce privește relația dintre platforma Xplorer-A și interfața AR, platforma oferă datele de bază necesare pentru vizualizare: poziție, orientare, odometrie, scanare LiDAR și stare de navigare. Aceste date pot fi transmise către Unity prin ROS-TCP-Connector și pot fi reprezentate într-o scenă 3D. Dacă ulterior se dorește integrarea semantică din articol, obiectele detectate prin ASF ar putea fi afișate și ele în AR, sub formă de marcaje sau zone de atenție. Astfel, articolul nu este util doar pentru descrierea platformei, ci și pentru direcțiile viitoare ale interfeței.
+
+Platforma Xplorer-A are un rol dublu în lucrare. Pe de o parte, este suport mecanic și software pentru brațul OMX-F. Pe de altă parte, este un exemplu de platformă educațională și de cercetare construită modular, în care pot fi adăugate funcții noi fără schimbarea completă a arhitecturii. Această modularitate este esențială pentru proiect, deoarece manipularea, bridge-ul Unity și AR sunt dezvoltate ca extensii ale unui sistem deja funcțional.
+
+În concluzie, Xplorer-A este o platformă potrivită pentru tema lucrării deoarece dispune de un stack ROS2/Nav2 validat, senzori suficienți pentru navigare indoor, hardware edge realist și o arhitectură modulară care permite extinderea cu manipulare robotică. Articolul analizat demonstrează capabilitățile platformei în navigare semantică și confirmă că aceasta poate susține scenarii complexe în ROS2 [25]. În lucrarea de față, această bază este folosită pentru un obiectiv diferit, și anume integrarea unui braț OMX-F și a unei interfețe de vizualizare AR pentru un scenariu de pick and place autonom.
+
 ## 1.2 Brațul robotic de manipulare OMX-F - prezentarea kit-ului utilizat
 
 Brațul robotic utilizat în cadrul lucrării este OMX-F, un kit comercial dezvoltat de ROBOTIS pentru aplicații educaționale, cercetare și prototipare rapidă în robotică [19], [20], [21]. Alegerea acestui braț este justificată prin faptul că oferă o structură mecanică suficient de compactă pentru integrarea pe o platformă mobilă, dar în același timp suficient de flexibilă pentru realizarea unui task de manipulare de tip pick and place. Brațul dispune de cinci grade de libertate și de un gripper, ceea ce permite mișcări de apropiere, orientare, prindere și plasare a obiectului în zona dorită.
